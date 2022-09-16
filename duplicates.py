@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 
+"""
+Find and manage duplicate files.
+"""
+
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import find_duplicate_files
+
+
+def _output_dupes_json(dupes, out_file):
+    with out_file.open('w') as dupes_file:
+        json.dump(dupes, dupes_file)
 
 
 def _output_dupes_csv(dupes, out_file):
@@ -19,7 +29,8 @@ def _output_dupes_csv(dupes, out_file):
 
 def _output_dupes(dupes, out_file, out_type):
     out_fn = {
-        'CSV': _output_dupes_csv
+        'CSV': _output_dupes_csv,
+        'JSON': _output_dupes_json,
     }
     out_fn[out_type](dupes, out_file)
 
@@ -30,10 +41,14 @@ def _print_dupes(dupes):
 
 
 def main():
+    """
+    Find and manage duplicate files.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--search_dir', '-d', help='Directory to search for duplicates', required=True)
     parser.add_argument('--out_file', '-o', help='Output file path', default=None)
-    parser.add_argument('--out_type', '-t', help='Output file type (default: CSV)', choices=['CSV'], default='CSV')
+    parser.add_argument('--out_type', '-t', help='Output file type (default: CSV)',
+                        choices=['CSV', 'JSON'], default='CSV')
     args = parser.parse_args()
 
     out_file = Path(args.out_file) if args.out_file else None
