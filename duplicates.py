@@ -7,37 +7,42 @@ Find and manage duplicate files.
 import argparse
 import csv
 import json
+import re
+import sys
 from pathlib import Path
 
 import find_duplicate_files
 
 
-def _output_dupes_json(dupes: list, out_file: Path):
-    with out_file.open('w') as dupes_file:
-        json.dump(dupes, dupes_file)
+def _output_dupes_json(dupes: list, out_stream):
+    json.dump(dupes, out_stream, indent=4)
 
 
-def _output_dupes_csv(dupes: list, out_file: Path):
+def _output_dupes_csv(dupes: list, out_stream):
     dupe_lengths = list(map(len, dupes))
     dupes_with_counts = [[i[0]] + i[1] for i in list(zip(dupe_lengths, dupes))]
     header = ['Count'] + ['Path'] * max(dupe_lengths)
-    with out_file.open('w') as dupes_file:
-        csv_writer = csv.writer(dupes_file)
-        csv_writer.writerow(header)
-        csv_writer.writerows(dupes_with_counts)
+    csv_writer = csv.writer(out_stream)
+    csv_writer.writerow(header)
+    csv_writer.writerows(dupes_with_counts)
+
+
+def _output_plain(dupes: list, out_stream):
+    for i in [[f'"{f}"' for f in row] for row in dupes]:
+        out_stream.write(' '.join(i) + '\n')
 
 
 def _output_dupes(dupes: list, out_file: Path, out_type: str):
     out_fn = {
         'CSV': _output_dupes_csv,
         'JSON': _output_dupes_json,
+        'PLAIN': _output_plain,
     }
-    out_fn[out_type](dupes, out_file)
-
-
-def _print_dupes(dupes: list):
-    for i in [[f'"{f}"' for f in row] for row in dupes]:
-        print(' '.join(i))
+    if out_file:
+        with out_file.open('w') as dupes_file:
+            out_fn[out_type](dupes, dupes_file)
+    else:
+        out_fn[out_type](dupes, sys.stdout)
 
 
 def _read_dupes_csv(in_file: Path):
@@ -58,24 +63,35 @@ def _read_dupes(in_file: Path, in_type: str):
     return in_fn[in_type](in_file)
 
 
-def _parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--search_dir', '-d', help='Directory to search for duplicates')
-    parser.add_argument('--in_file', '-i', help='Input file path', default=None)
-    parser.add_argument('--in_type', '-it', help='Input file type (default: JSON)',
-                        choices=['CSV', 'JSON'], default='JSON')
-    parser.add_argument('--out_file', '-o', help='Output file path', default=None)
-    parser.add_argument('--out_type', '-t', help='Output file type (default: CSV)',
-                        choices=['CSV', 'JSON'], default='CSV')
-    return parser.parse_args()
-
-
 def _find_dupes(search_dir_path: str):
     search_dir = Path(search_dir_path)
     if not search_dir.is_dir():
         raise RuntimeError(f'{search_dir} is not a directory')
 
     return find_duplicate_files.find_duplicate_files(search_dir, chunks=2)
+
+
+def _filter(dupes: list, pattern: str):
+    filtered = []
+    for row in dupes:
+        filtered_row = [i for i in row if re.search(pattern, i)]
+        if filtered_row:
+            filtered.append(filtered_row)
+
+    return filtered
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--search-dir', '-d', help='Directory to search for duplicates')
+    parser.add_argument('--in-file', '-i', help='Input file path', default=None)
+    parser.add_argument('--in-type', '-it', help='Input file type (default: JSON)',
+                        choices=['CSV', 'JSON'], default='JSON')
+    parser.add_argument('--out-file', '-o', help='Output file path', default=None)
+    parser.add_argument('--out-type', '-ot', help='Output file type (default: PLAIN)',
+                        choices=['CSV', 'JSON', 'PLAIN'], default='PLAIN')
+    parser.add_argument('--filter-pattern', '-f', help='Filter pattern regex', default=None)
+    return parser.parse_args()
 
 
 def main():
@@ -94,10 +110,10 @@ def main():
     else:
         dupes = _find_dupes(args.search_dir)
 
-    if out_file:
-        _output_dupes(dupes, out_file, args.out_type)
-    else:
-        _print_dupes(dupes)
+    # Inefficient. But there are other inefficiencies: let's see if this is good enough.
+    filtered_dupes = _filter(dupes, args.filter_pattern) if args.filter_pattern else dupes
+
+    _output_dupes(filtered_dupes, out_file, args.out_type)
 
 
 if __name__ == '__main__':
