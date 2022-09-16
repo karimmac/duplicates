@@ -28,7 +28,7 @@ def _output_dupes_csv(dupes: list, out_stream):
 
 
 def _output_plain(dupes: list, out_stream):
-    for i in [[f'"{f}"' for f in row] for row in dupes]:
+    for i in dupes:
         out_stream.write(' '.join(i) + '\n')
 
 
