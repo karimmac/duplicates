@@ -4,6 +4,11 @@
 
 | #   | State  | Title                                           |
 | --- | ------ | ----------------------------------------------- |
+| 13  | OPEN   | Rescan a set of file-hashes                     |
+| 12  | OPEN   | Scan multiple sets of file-hashes for dupes     |
+| 11  | OPEN   | Scan a set of file-hashes for dupes             |
+| 10  | OPEN   | Write out a set of file hashes                  |
+| 9   | OPEN   | Rescan an input set of dupes                    |
 | 8   | CLOSED | Filter dupes by regex                           |
 | 7   | CLOSED | Filter dupes by string matching                 |
 | 6   | OPEN   | Replace use of find_duplicate_files PyPI module |
