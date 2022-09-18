@@ -40,8 +40,6 @@ def _output_plain(dupes: Iterable, out_stream):
 
 
 def _output_dupes(dupes: list, out_file: Path, out_type: str):
-    absolute_dupes = map(lambda i: [str(Path(j).absolute().resolve()) for j in i], dupes) if dupes else []
-
     out_fn = {
         'CSV': _output_dupes_csv,
         'JSON': _output_dupes_json,
@@ -49,9 +47,9 @@ def _output_dupes(dupes: list, out_file: Path, out_type: str):
     }
     if out_file:
         with out_file.open('w') as dupes_file:
-            out_fn[out_type](absolute_dupes, dupes_file)
+            out_fn[out_type](dupes, dupes_file)
     else:
-        out_fn[out_type](absolute_dupes, sys.stdout)
+        out_fn[out_type](dupes, sys.stdout)
 
 
 def _read_dupes_csv(in_file: Path):
@@ -139,8 +137,9 @@ class DupeFinder():
     MD5 is apparently good enough for most comparisons (1 accidental collision every 10^29 or so).
     """
 
-    def __init__(self):
+    def __init__(self, verbose: bool = False):
         self.file_map = {}
+        self.verbose = verbose
 
     def _insert_into_metric_map(self, metric: FileMetric, measure, file: Path):
         if metric not in self.file_map:
@@ -218,6 +217,27 @@ def _filter(dupes: list, pattern: str):
     return filtered
 
 
+def _resolve_path_to_dir(root: str, path: str):
+    return path if Path(path).is_absolute() else Path(root) / path
+
+
+def _resolve_to_cwd(dupes: list):
+    """
+    Attempt to resolve the list of dupes relative to the current working directory.
+    Any absolute paths are left untouched.
+    This does _not_ do 'true' resolve in the same way as Path.resolve() et al,
+    as we wish to leave any symlinks untouched.
+    """
+    cwd = Path.cwd()
+    resolved = []
+    for row in dupes:
+        resolved_row = [str(_resolve_path_to_dir(cwd, i)) for i in row]
+        if resolved_row:
+            resolved.append(resolved_row)
+
+    return resolved
+
+
 def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--search-dir', '-d', help='Directory to search for duplicates')
@@ -230,6 +250,8 @@ def _parse_args():
     parser.add_argument('--filter-pattern', '-f', help='Filter pattern regex', default=None)
     parser.add_argument('--rescan', '-r', help='Rescan items from input-file',
                         action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--verbose', '-v', help='Verbose output - e.g. print each processed file',
+                        action=argparse.BooleanOptionalAction, default=False)
     return parser.parse_args()
 
 
@@ -238,6 +260,8 @@ def main():
     Find and manage duplicate files.
     """
     args = _parse_args()
+    if args.verbose:
+        LOGGER.debug('args: %s', args)
 
     out_file = None
     if args.out_file:
@@ -247,14 +271,15 @@ def main():
     dupes = None
     if args.in_file:
         old_dupes = _read_dupes(Path(args.in_file), args.in_type)
-        dupes = old_dupes if not args.rescan else DupeFinder().rescan(old_dupes)
+        dupes = old_dupes if not args.rescan else DupeFinder(verbose=args.verbose).rescan(old_dupes)
     else:
-        dupes = DupeFinder().find_dupes(args.search_dir)
+        dupes = DupeFinder(verbose=args.verbose).find_dupes(args.search_dir)
 
     # Inefficient. But there are other inefficiencies: let's see if this is good enough.
     filtered_dupes = _filter(dupes, args.filter_pattern) if args.filter_pattern else dupes
+    resolved_dupes = _resolve_to_cwd(filtered_dupes)
 
-    _output_dupes(filtered_dupes, out_file, args.out_type)
+    _output_dupes(resolved_dupes, out_file, args.out_type)
 
 
 if __name__ == '__main__':
