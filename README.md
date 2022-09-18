@@ -4,7 +4,8 @@
 
 | #   | State  | Title                                           |
 | --- | ------ | ----------------------------------------------- |
-| 14  | OPEN   | Show dupe-scanning process                      |
+| 15  | CLOSED | Dupe scanning fails for files > 1K!             |
+| 14  | OPEN   | Show dupe-scanning progress                     |
 | 13  | OPEN   | Rescan a set of file-hashes                     |
 | 12  | OPEN   | Scan multiple sets of file-hashes for dupes     |
 | 11  | OPEN   | Scan a set of file-hashes for dupes             |

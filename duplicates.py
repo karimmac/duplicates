@@ -212,7 +212,7 @@ class DupeFinder():
         """
         Return a list of duplicate-list absolute Paths.
         """
-        dupes_map = self.file_map.get(FileMetric.MAX - 1, {})
+        dupes_map = self.file_map.get(FileMetric.MAX, {})
         return [[str(i.resolve()) for i in v] for (_, v) in dupes_map.items()]
 
 
