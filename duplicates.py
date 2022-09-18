@@ -185,11 +185,11 @@ class DupeFinder():
                 else:
                     self._lookup_dupes(i)
 
-    def find_dupes(self, search_dir: str):
+    def find_dupes(self, search_dirs: list[str]):
         """
         Find duplicate files within our defined search directories.
         """
-        search_dirs = [Path(search_dir)]
+        search_dirs = [Path(i) for i in search_dirs]
 
         for path in search_dirs:
             assert path.is_dir() and not path.is_symlink(), f'{path} must be a non-symlink directory'
@@ -249,7 +249,8 @@ def _resolve_to_cwd(dupes: list):
 
 def _parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--search-dir', '-d', help='Directory to search for duplicates')
+    parser.add_argument('--search-dir', '-d', action='append',
+                        help='Directory to search for duplicates (multiple entries accepted)')
     parser.add_argument('--in-file', '-i', help='Input file path', default=None)
     parser.add_argument('--in-type', '-it', help='Input file type (default: JSON)',
                         choices=['CSV', 'JSON'], default='JSON')
