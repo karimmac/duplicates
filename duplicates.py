@@ -195,8 +195,7 @@ class DupeFinder():
             assert path.is_dir() and not path.is_symlink(), f'{path} must be a non-symlink directory'
 
         self._process_dupes(search_dirs)
-        dupes_map = self.file_map.get(FileMetric.MAX - 1, {})
-        return [[str(i) for i in v] for (_, v) in dupes_map.items()]
+        return self.dupes
 
     def rescan(self, old_dupes: list[list]):
         """
@@ -205,6 +204,16 @@ class DupeFinder():
         for dupe_set in old_dupes:
             for i in dupe_set:
                 self._lookup_dupes(Path(i))
+
+        return self.dupes
+
+    @property
+    def dupes(self):
+        """
+        Return a list of duplicate-list absolute Paths.
+        """
+        dupes_map = self.file_map.get(FileMetric.MAX - 1, {})
+        return [[str(i.resolve()) for i in v] for (_, v) in dupes_map.items()]
 
 
 def _filter(dupes: list, pattern: str):
@@ -268,16 +277,23 @@ def main():
         out_file = Path(args.out_file)
         assert not out_file.exists(), f'{out_file} already exists'
 
+    def resolve_fn(i):
+        return i
+
     dupes = None
     if args.in_file:
         old_dupes = _read_dupes(Path(args.in_file), args.in_type)
-        dupes = old_dupes if not args.rescan else DupeFinder(verbose=args.verbose).rescan(old_dupes)
+        if not args.rescan:
+            dupes = old_dupes
+            resolve_fn = _resolve_to_cwd
+        else:
+            dupes = DupeFinder(verbose=args.verbose).rescan(old_dupes)
     else:
         dupes = DupeFinder(verbose=args.verbose).find_dupes(args.search_dir)
 
     # Inefficient. But there are other inefficiencies: let's see if this is good enough.
     filtered_dupes = _filter(dupes, args.filter_pattern) if args.filter_pattern else dupes
-    resolved_dupes = _resolve_to_cwd(filtered_dupes)
+    resolved_dupes = resolve_fn(filtered_dupes)
 
     _output_dupes(resolved_dupes, out_file, args.out_type)
 
