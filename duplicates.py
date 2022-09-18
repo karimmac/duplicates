@@ -14,30 +14,34 @@ import re
 import sys
 from enum import IntEnum, auto
 from pathlib import Path
+from typing import Iterable
 
 LOGGER = logging.getLogger(__file__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-def _output_dupes_json(dupes: list, out_stream):
-    json.dump(dupes, out_stream, indent=4)
+def _output_dupes_json(dupes: Iterable, out_stream):
+    json.dump(list(dupes), out_stream, indent=4)
 
 
-def _output_dupes_csv(dupes: list, out_stream):
-    dupe_lengths = list(map(len, dupes))
-    dupes_with_counts = [[i[0]] + i[1] for i in list(zip(dupe_lengths, dupes))]
+def _output_dupes_csv(dupes: Iterable, out_stream):
+    dupes_list = list(dupes)
+    dupe_lengths = list(map(len, dupes_list))
+    dupes_with_counts = [[i[0]] + i[1] for i in list(zip(dupe_lengths, dupes_list))]
     header = ['Count'] + ['Path'] * max(dupe_lengths)
     csv_writer = csv.writer(out_stream)
     csv_writer.writerow(header)
     csv_writer.writerows(dupes_with_counts)
 
 
-def _output_plain(dupes: list, out_stream):
+def _output_plain(dupes: Iterable, out_stream):
     for i in dupes:
         out_stream.write(' '.join(i) + '\n')
 
 
 def _output_dupes(dupes: list, out_file: Path, out_type: str):
+    absolute_dupes = map(lambda i: [str(Path(j).absolute().resolve()) for j in i], dupes) if dupes else []
+
     out_fn = {
         'CSV': _output_dupes_csv,
         'JSON': _output_dupes_json,
@@ -45,9 +49,9 @@ def _output_dupes(dupes: list, out_file: Path, out_type: str):
     }
     if out_file:
         with out_file.open('w') as dupes_file:
-            out_fn[out_type](dupes, dupes_file)
+            out_fn[out_type](absolute_dupes, dupes_file)
     else:
-        out_fn[out_type](dupes, sys.stdout)
+        out_fn[out_type](absolute_dupes, sys.stdout)
 
 
 def _read_dupes_csv(in_file: Path):
@@ -152,6 +156,14 @@ class DupeFinder():
         return similar_files
 
     def _lookup_dupes(self, file: Path, metric: FileMetric = FileMetric.MIN):
+        if file.is_symlink():
+            LOGGER.warning('Ignoring - symlink: %s', file)
+            return
+
+        if not file.is_file():
+            LOGGER.info('Ignoring - not a file: %s', file)
+            return
+
         measure = metrics[metric](file)
         similar_files = self._insert_into_metric_map(metric, measure, file)
 
@@ -164,10 +176,11 @@ class DupeFinder():
 
     def _process_dupes(self, search_dirs: list[Path]):
         for search_dir in search_dirs:
-            for i in search_dir.iterdir():
-                if i.is_symlink():
-                    continue
+            if search_dir.is_symlink():
+                LOGGER.warning('Ignoring - directory symlink: %s', search_dir)
+                continue
 
+            for i in search_dir.iterdir():
                 if i.is_dir():
                     search_dirs.append(i)
                 else:
@@ -185,6 +198,14 @@ class DupeFinder():
         self._process_dupes(search_dirs)
         dupes_map = self.file_map.get(FileMetric.MAX - 1, {})
         return [[str(i) for i in v] for (_, v) in dupes_map.items()]
+
+    def rescan(self, old_dupes: list[list]):
+        """
+        Rescan an existing set of duplicate files.
+        """
+        for dupe_set in old_dupes:
+            for i in dupe_set:
+                self._lookup_dupes(Path(i))
 
 
 def _filter(dupes: list, pattern: str):
@@ -207,6 +228,8 @@ def _parse_args():
     parser.add_argument('--out-type', '-ot', help='Output file type (default: PLAIN)',
                         choices=['CSV', 'JSON', 'PLAIN'], default='PLAIN')
     parser.add_argument('--filter-pattern', '-f', help='Filter pattern regex', default=None)
+    parser.add_argument('--rescan', '-r', help='Rescan items from input-file',
+                        action=argparse.BooleanOptionalAction, default=False)
     return parser.parse_args()
 
 
@@ -223,7 +246,8 @@ def main():
 
     dupes = None
     if args.in_file:
-        dupes = _read_dupes(Path(args.in_file), args.in_type)
+        old_dupes = _read_dupes(Path(args.in_file), args.in_type)
+        dupes = old_dupes if not args.rescan else DupeFinder().rescan(old_dupes)
     else:
         dupes = DupeFinder().find_dupes(args.search_dir)
 
