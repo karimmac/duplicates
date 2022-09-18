@@ -135,8 +135,7 @@ class DupeFinder():
     MD5 is apparently good enough for most comparisons (1 accidental collision every 10^29 or so).
     """
 
-    def __init__(self, search_dir: str):
-        self.search_dirs = [Path(search_dir)]
+    def __init__(self):
         self.file_map = {}
 
     def _insert_into_metric_map(self, metric: FileMetric, measure, file: Path):
@@ -174,21 +173,18 @@ class DupeFinder():
                 else:
                     self._lookup_dupes(i)
 
-    def find_dupes(self):
+    def find_dupes(self, search_dir: str):
         """
         Find duplicate files within our defined search directories.
         """
-        self._process_dupes(self.search_dirs)
+        search_dirs = [Path(search_dir)]
+
+        for path in search_dirs:
+            assert path.is_dir() and not path.is_symlink(), f'{path} must be a non-symlink directory'
+
+        self._process_dupes(search_dirs)
         dupes_map = self.file_map.get(FileMetric.MAX - 1, {})
         return [[str(i) for i in v] for (_, v) in dupes_map.items()]
-
-
-def _find_dupes(search_dir_path: str):
-    search_dir = Path(search_dir_path)
-    if not search_dir.is_dir():
-        raise RuntimeError(f'{search_dir} is not a directory')
-
-    return DupeFinder(search_dir).find_dupes()
 
 
 def _filter(dupes: list, pattern: str):
@@ -220,15 +216,16 @@ def main():
     """
     args = _parse_args()
 
-    out_file = Path(args.out_file) if args.out_file else None
-    if out_file and out_file.exists():
-        raise RuntimeError(f'{out_file} already exists')
+    out_file = None
+    if args.out_file:
+        out_file = Path(args.out_file)
+        assert not out_file.exists(), f'{out_file} already exists'
 
     dupes = None
     if args.in_file:
         dupes = _read_dupes(Path(args.in_file), args.in_type)
     else:
-        dupes = _find_dupes(args.search_dir)
+        dupes = DupeFinder().find_dupes(args.search_dir)
 
     # Inefficient. But there are other inefficiencies: let's see if this is good enough.
     filtered_dupes = _filter(dupes, args.filter_pattern) if args.filter_pattern else dupes
