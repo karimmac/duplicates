@@ -219,8 +219,17 @@ class DupeFinder():
 def _filter(dupes: list, pattern: str):
     filtered = []
     for dupe_list in dupes:
+        # Should never happen!
+        if len(dupe_list) < 2:
+            continue
+
         filtered_dupe_list = [i for i in dupe_list if re.search(pattern, i)]
         if filtered_dupe_list:
+            # By default if all items match then keep (do not return) the last item,
+            # to reduce the odds of inadvertently deleting all copies of a file.
+            if len(filtered_dupe_list) == len(dupe_list):
+                filtered_dupe_list.pop()
+
             filtered.append(filtered_dupe_list)
 
     return filtered
@@ -257,7 +266,8 @@ def _parse_args():
     parser.add_argument('--out-file', '-o', help='Output file path', default=None)
     parser.add_argument('--out-type', '-ot', help='Output file type (default: PLAIN)',
                         choices=['CSV', 'JSON', 'PLAIN'], default='PLAIN')
-    parser.add_argument('--filter-pattern', '-f', help='Filter pattern regex', default=None)
+    filter_help = 'Filter items by regex pattern. If _all_ duplicates in a set match then the last is not returned, to avoid deleting all copies of a file.'
+    parser.add_argument('--filter-pattern', '-f', help=filter_help, default=None)
     parser.add_argument('--rescan', '-r', help='Rescan items from input-file',
                         action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--verbose', '-v', help='Verbose output - e.g. print each processed file',
