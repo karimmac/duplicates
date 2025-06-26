@@ -201,9 +201,9 @@ class DupeFinder():
         """
         Rescan an existing set of duplicate files.
         """
-        for dupe_set in old_dupes:
-            for i in dupe_set:
-                self._lookup_dupes(Path(i))
+        for dupe_list in old_dupes:
+            for item, i in enumerate(dupe_list):
+                self._lookup_dupes(Path(item))
 
         return self.dupes
 
@@ -218,10 +218,10 @@ class DupeFinder():
 
 def _filter(dupes: list, pattern: str):
     filtered = []
-    for row in dupes:
-        filtered_row = [i for i in row if re.search(pattern, i)]
-        if filtered_row:
-            filtered.append(filtered_row)
+    for dupe_list in dupes:
+        filtered_dupe_list = [i for i in dupe_list if re.search(pattern, i)]
+        if filtered_dupe_list:
+            filtered.append(filtered_dupe_list)
 
     return filtered
 
@@ -239,10 +239,10 @@ def _resolve_to_cwd(dupes: list):
     """
     cwd = Path.cwd()
     resolved = []
-    for row in dupes:
-        resolved_row = [str(_resolve_path_to_dir(cwd, i)) for i in row]
-        if resolved_row:
-            resolved.append(resolved_row)
+    for dupe_list in dupes:
+        resolved_dupe_list = [str(_resolve_path_to_dir(cwd, i)) for i in dupe_list]
+        if resolved_dupe_list:
+            resolved.append(resolved_dupe_list)
 
     return resolved
 
@@ -284,6 +284,7 @@ def main():
     dupes = None
     if args.in_file:
         old_dupes = _read_dupes(Path(args.in_file), args.in_type)
+        LOGGER.debug('Read %s existing duplicate sets', len(old_dupes))
         if not args.rescan:
             dupes = old_dupes
             resolve_fn = _resolve_to_cwd
