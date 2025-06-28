@@ -1,56 +1,48 @@
-import unittest
 import shutil
 import tempfile
 from pathlib import Path
+import pytest
 
 from duplicates.dupe_finder import DupeFinder
 
 
-class TestDupeFinder(unittest.TestCase):
-    def setUp(self):
-        # Create a temporary directory for test files
-        self.test_dir = tempfile.mkdtemp()
-        self.test_path = Path(self.test_dir)
-        # Create duplicate files
-        (self.test_path / "file1.txt").write_text("duplicate content")
-        (self.test_path / "file2.txt").write_text("duplicate content")
-        # Create a unique file
-        (self.test_path / "unique.txt").write_text("unique content")
-        # Create another set of duplicates
-        (self.test_path / "dupeA").write_text("abc")
-        (self.test_path / "dupeB").write_text("abc")
-        # Create a subdirectory with a duplicate
-        subdir = self.test_path / "subdir"
-        subdir.mkdir()
-        (subdir / "file3.txt").write_text("duplicate content")
-
-    def tearDown(self):
-        shutil.rmtree(self.test_dir)
-
-    def test_find_dupes(self):
-        finder = DupeFinder()
-        dupes = finder.find_dupes([str(self.test_path)])
-        # Flatten and sort for easier assertions
-        dupe_sets = [set(map(Path, group)) for group in dupes]
-        # There should be two sets of duplicates
-        self.assertEqual(len(dupe_sets), 2)
-        # Check that all expected duplicates are found
-        expected1 = {
-            self.test_path / "file1.txt",
-            self.test_path / "file2.txt",
-            self.test_path / "subdir" / "file3.txt",
-        }
-        expected2 = {self.test_path / "dupeA", self.test_path / "dupeB"}
-        self.assertTrue(any(expected1 == s for s in dupe_sets))
-        self.assertTrue(any(expected2 == s for s in dupe_sets))
-
-    def test_no_false_positives(self):
-        finder = DupeFinder()
-        dupes = finder.find_dupes([str(self.test_path)])
-        all_dupes = set(f for group in dupes for f in group)
-        # unique.txt should not be in any dupe set
-        self.assertNotIn(str(self.test_path / "unique.txt"), all_dupes)
+@pytest.fixture
+def temp_dupe_dir():
+    test_dir = tempfile.mkdtemp()
+    test_path = Path(test_dir)
+    # Create duplicate files
+    (test_path / "file1.txt").write_text("duplicate content")
+    (test_path / "file2.txt").write_text("duplicate content")
+    # Create a unique file
+    (test_path / "unique.txt").write_text("unique content")
+    # Create another set of duplicates
+    (test_path / "dupeA").write_text("abc")
+    (test_path / "dupeB").write_text("abc")
+    # Create a subdirectory with a duplicate
+    subdir = test_path / "subdir"
+    subdir.mkdir()
+    (subdir / "file3.txt").write_text("duplicate content")
+    yield test_path
+    shutil.rmtree(test_dir)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_find_dupes(temp_dupe_dir):
+    finder = DupeFinder()
+    dupes = finder.find_dupes([str(temp_dupe_dir)])
+    dupe_sets = [set(map(Path, group)) for group in dupes]
+    assert len(dupe_sets) == 2
+    expected1 = {
+        temp_dupe_dir / "file1.txt",
+        temp_dupe_dir / "file2.txt",
+        temp_dupe_dir / "subdir" / "file3.txt",
+    }
+    expected2 = {temp_dupe_dir / "dupeA", temp_dupe_dir / "dupeB"}
+    assert any(expected1 == s for s in dupe_sets)
+    assert any(expected2 == s for s in dupe_sets)
+
+
+def test_no_false_positives(temp_dupe_dir):
+    finder = DupeFinder()
+    dupes = finder.find_dupes([str(temp_dupe_dir)])
+    all_dupes = set(f for group in dupes for f in group)
+    assert str(temp_dupe_dir / "unique.txt") not in all_dupes
