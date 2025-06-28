@@ -9,7 +9,7 @@ from duplicates.dupe_finder import DupeFinder
 @pytest.fixture
 def temp_dupe_dir():
     test_dir = tempfile.mkdtemp()
-    test_path = Path(test_dir)
+    test_path = Path(test_dir).resolve()
     # Create duplicate files
     (test_path / "file1.txt").write_text("duplicate content")
     (test_path / "file2.txt").write_text("duplicate content")
