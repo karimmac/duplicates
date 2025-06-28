@@ -6,8 +6,6 @@ Find and manage duplicate files.
 
 import argparse
 import csv
-import functools
-import hashlib
 import json
 import logging
 import re
@@ -16,10 +14,7 @@ from pathlib import Path
 from typing import Iterable
 
 from duplicates.dupe_finder import DupeFinder
-from duplicates.file_metrics import FileMetric
-
-LOGGER = logging.getLogger(__file__)
-logging.basicConfig()
+from duplicates.logger import LOGGER
 
 
 def _output_dupes_json(dupes: Iterable, out_stream):

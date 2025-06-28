@@ -2,7 +2,7 @@ import functools
 import hashlib
 from pathlib import Path
 from duplicates.file_metrics import FileMetric
-from duplicates.main import LOGGER
+from duplicates.logger import LOGGER
 
 
 def _file_size(file: Path):
