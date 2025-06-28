@@ -1,0 +1,2 @@
+[project.scripts]
+duplicates = "duplicates.main:main"
