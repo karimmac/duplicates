@@ -29,16 +29,20 @@ def temp_dupe_dir():
 def test_find_dupes(temp_dupe_dir):
     finder = DupeFinder()
     dupes = finder.find_dupes([str(temp_dupe_dir)])
-    dupe_sets = [set(map(Path, group)) for group in dupes]
-    assert len(dupe_sets) == 2
-    expected1 = {
-        temp_dupe_dir / "file1.txt",
-        temp_dupe_dir / "file2.txt",
-        temp_dupe_dir / "subdir" / "file3.txt",
-    }
-    expected2 = {temp_dupe_dir / "dupeA", temp_dupe_dir / "dupeB"}
-    assert any(expected1 == s for s in dupe_sets)
-    assert any(expected2 == s for s in dupe_sets)
+
+    # Map to sets of sets of Paths for ordered comparison.
+    dupe_sets = set([frozenset(map(Path, group)) for group in dupes])
+
+    expected1 = frozenset(
+        {
+            temp_dupe_dir / "file1.txt",
+            temp_dupe_dir / "file2.txt",
+            temp_dupe_dir / "subdir" / "file3.txt",
+        }
+    )
+    expected2 = frozenset({temp_dupe_dir / "dupeA", temp_dupe_dir / "dupeB"})
+
+    assert set([expected1, expected2]) == dupe_sets
 
 
 def test_no_false_positives(temp_dupe_dir):

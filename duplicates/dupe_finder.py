@@ -4,17 +4,20 @@ from pathlib import Path
 from duplicates.file_metrics import FileMetric
 from duplicates.logger import LOGGER
 
+MIN_SIZE = 1024
+MAX_SIZE = -1
+
 
 def _file_size(file: Path):
     return file.stat(follow_symlinks=False).st_size
 
 
+md5_cache = {}
+
+
 def _calc_md5_hash(chunk_size: int, file: Path):
     with file.open("rb") as in_file:
         return hashlib.md5(in_file.read(chunk_size)).hexdigest()
-
-
-md5_cache = {}
 
 
 def _md5_hash(chunk_size: int, file: Path):
@@ -29,11 +32,7 @@ def _md5_hash(chunk_size: int, file: Path):
     return _calc_md5_hash(chunk_size, file)
 
 
-MIN_SIZE = 1024
-MAX_SIZE = -1
-
-
-metrics = {
+METRICS = {
     FileMetric.SIZE: _file_size,
     FileMetric.HASH_1K: functools.partial(_md5_hash, MIN_SIZE),
     FileMetric.HASH_MD5: functools.partial(_md5_hash, MAX_SIZE),
@@ -73,7 +72,7 @@ class DupeFinder:
             LOGGER.info("Ignoring - not a file: %s", file)
             return
 
-        measure = metrics[metric](file)
+        measure = METRICS[metric](file)
         similar_files = self._insert_into_metric_map(metric, measure, file)
 
         if len(similar_files) > 1:
