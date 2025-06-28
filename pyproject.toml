@@ -1,2 +1,10 @@
+[project]
+name = "duplicates"
+version = "0.1.0"
+description = "Find duplicate files."
+authors = [{ name = "Karim MacDonald" }]
+readme = "README.md"
+requires-python = ">=3.8"
+
 [project.scripts]
 duplicates = "duplicates.main:main"
